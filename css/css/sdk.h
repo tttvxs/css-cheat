@@ -206,6 +206,42 @@ public:
     int network_protocol = 0;
 };
 
+class CKeyValues {
+public:	
+	enum types_t {
+		TYPE_NONE = 0,
+		TYPE_STRING,
+		TYPE_INT,
+		TYPE_FLOAT,
+		TYPE_PTR,
+		TYPE_WSTRING,
+		TYPE_COLOR,
+		TYPE_UINT64,
+		TYPE_NUMTYPES,
+	};
+
+	int m_iKeyName;
+
+	char* m_sValue;
+	wchar_t* m_wsValue;
+
+	union {
+		int m_iValue;
+		float m_flValue;
+		void* m_pValue;
+		unsigned char m_Color[4];
+	};
+
+	char m_iDataType;
+	char m_bHasEscapeSequences; 
+	char m_bEvaluateConditionals;
+	char unused[1];
+
+	CKeyValues* m_pPeer; 
+	CKeyValues* m_pSub;
+	CKeyValues* m_pChain;	
+};
+
 class CMaterial {
 public:
     /*0*/ virtual void* GetName(void)const = 0;
@@ -1337,3 +1373,4 @@ class Player_t : public Entity_t {
 public:
 
 };
+
