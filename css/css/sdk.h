@@ -3,6 +3,7 @@
 #include <Windows.h>
 #include "utils/Vectors.h"
 #include "utils/memory.h"
+#include "../../../TF2/TF2/sdk/dt/dt_recv.h"
 
 class CBaseHandle;
 class IClientRenderable;
@@ -12,10 +13,17 @@ class IWorldRenderList;
 class VPlane;
 class VisibleFogVolumeInfo_t;
 class ITexture;
+class CSaveRestoreData;
+class CEngineSprite;
+class IConVar;
 struct model_t;
+struct ClientFrameStage_t;
 struct dlight_t;
 struct WorldListInfo_t;
+struct ScreenFade_t;
 struct VisOverrideData_t;
+struct ButtonCode_t;
+struct datamap_t;
 struct IBrushRenderer;
 typedef unsigned short MaterialHandle_t;
 class IClientNetworkable;
@@ -30,7 +38,10 @@ typedef c_client_think_handle_ptr* client_think_handle_t;
 class SurfInfo;
 class CAudioSource;
 struct client_textmessage_t;
+struct StartSoundParams_t;
+struct typedescription_t;
 class CSentence;
+class IFileList;
 class ISpatialQuery;
 class ClientClass;
 extern ClientClass* g_pClientClassHead;
@@ -417,7 +428,7 @@ public:
 
 class ClientClass {
 public:
-    ClientClass(char* pNetworkName, CreateClientClassFn createFn, CreateEventFn createEventFn, void* pRecvTable) {
+    ClientClass(char* pNetworkName, CreateClientClassFn createFn, CreateEventFn createEventFn, RecvTable* pRecvTable) {
         m_pNetworkName = pNetworkName;
         m_pCreateFn = createFn;
         m_pCreateEventFn = createEventFn;
@@ -435,7 +446,7 @@ public:
     CreateClientClassFn m_pCreateFn;
     CreateEventFn m_pCreateEventFn;
     char* m_pNetworkName;
-    void* m_pRecvTable;
+    RecvTable* m_pRecvTable;
     ClientClass* m_pNext;
     int m_ClassID;
 };
@@ -468,12 +479,11 @@ public:
 
 class IClientEntity : public IClientUnknown, public IClientRenderable, public IClientNetworkable, public IClientThinkable {
 public:
-    virtual void release(void) = 0;
-    virtual const vec3& get_abs_origin(void) const = 0;
-    virtual const vec3& get_abs_angles(void) const = 0;
-    virtual void* get_mouth(void) = 0;
-    virtual bool get_sound_spatialization(int& info) = 0;
-
+    virtual void Release(void) = 0;
+    virtual const vec3& GetAbsOrigin(void) const = 0;
+    virtual const QAngle& GetAbsAngles(void) const = 0;
+    virtual void* GetMouth(void) = 0;
+    virtual bool GetSoundSpatialization(int& info) = 0;
     template <typename T> inline T* as() { return reinterpret_cast<T*>(this); }
 };
 
@@ -672,7 +682,6 @@ public:
 
 class CEngineVGui {
 public:
-    /*1*/ virtual void* __destuctor__() = 0;
     /*2*/ virtual void* GetPanel(int) = 0;
     /*3*/ virtual void* IsGameUIVisible(void) = 0;
     /*4*/ virtual void* GetWorkshopMap(unsigned int, void*) = 0;
@@ -1052,22 +1061,39 @@ public:
 
 class CViewSetup {
 public:
-    int      x;
-    int      m_nUnscaledX;
-    int      y;
-    int      m_nUnscaledY;
-    int      width;
-    int      m_nUnscaledWidth;
-    int      height;
-    int      m_eStereoEye;
-    int      m_nUnscaledHeight;
-    bool    m_bOrtho;
-    float    m_OrthoLeft;
-    float    m_OrthoTop;
-    float    m_OrthoRight;
-    float    m_OrthoBottom;
-    float    fov;
-    float    fovViewmodel;
+    int x{};
+    int m_nUnscaledX{};
+    int y{};
+    int m_nUnscaledY{};
+    int width{};
+    int m_nUnscaledWidth{};
+    int height{};
+    int m_eStereoEye{};
+    int m_nUnscaledHeight{};
+    bool m_bOrtho{};
+    float m_OrthoLeft{};
+    float m_OrthoTop{};
+    float m_OrthoRight{};
+    float m_OrthoBottom{};
+    float fov{};
+    float fovViewmodel{};
+    vec3 origin{};
+    vec3 angles{};
+    float zNear{};
+    float zFar{};
+    float zNearViewmodel{};
+    float zFarViewmodel{};
+    bool m_bRenderToSubrectOfLargerScreen{};
+    float m_flAspectRatio{};
+    bool m_bOffCenter{};
+    float m_flOffCenterTop{};
+    float m_flOffCenterBottom{};
+    float m_flOffCenterLeft{};
+    float m_flOffCenterRight{};
+    bool m_bDoBloomAndToneMapping{};
+    bool m_bCacheFullSceneState{};
+    bool m_bViewToProjectionOverride{};
+    VMatrix m_ViewToProjection{};
 };
 
 class CVRenderView {
@@ -1322,55 +1348,1156 @@ public:
     /*1*/ virtual CGlobalVarsBase* GetGlobalVars(void) = 0;
 };
 
-class CPanel{
+class CHLClient {
 public:
-    /*0*/ virtual void* GetVPanel(void) = 0;
-    /*1*/ virtual void* Think(void) = 0;
-    /*2*/ virtual void* PerformApplySchemeSettings(void) = 0;
-    /*3*/ virtual void* PaintTraverse(bool, bool) = 0;
-    /*4*/ virtual void* Repaint(void) = 0;
-    /*5*/ virtual void* IsWithinTraverse(int, int, bool) = 0;
-    /*6*/ virtual void* GetInset(int&, int&, int&, int&) = 0;
-    /*7*/ virtual void* GetClipRect(int&, int&, int&, int&) = 0;
-    /*8*/ virtual void* OnChildAdded(unsigned int) = 0;
-    /*9*/ virtual void* OnSizeChanged(int, int) = 0;
-    /*10*/ virtual void* InternalFocusChanged(bool) = 0;
-    /*11*/ virtual void* RequestInfo(CKeyValues*) = 0;
-    /*12*/ virtual void* RequestFocus(int) = 0;
-    /*13*/ virtual void* RequestFocusPrev(unsigned int) = 0;
-    /*14*/ virtual void* RequestFocusNext(unsigned int) = 0;
-    /*15*/ virtual void* OnMessage(CKeyValues const*, unsigned int) = 0;
-    /*16*/ virtual void* GetCurrentKeyFocus(void) = 0;
-    /*17*/ virtual void* GetTabPosition(void) = 0;
-    /*18*/ virtual void* GetName(void) = 0;
-    /*19*/ virtual void* GetClassName__(void) = 0;
-    /*20*/ virtual void* GetScheme(void) = 0;
-    /*21*/ virtual void* IsProportional(void) = 0;
-    /*22*/ virtual void* IsAutoDeleteSet(void) = 0;
-    /*23*/ virtual void* DeletePanel(void) = 0;
-    /*24*/ virtual void* QueryInterface(int) = 0;
-    /*25*/ virtual void* GetPanel(void) = 0;
-    /*26*/ virtual void* GetModuleName(void) = 0;
-    /*27*/ virtual void* OnTick(void) = 0;
-    /*28*/ virtual void* GetMessageMap(void) = 0;
-    /*29*/ virtual void* GetAnimMap(void) = 0;
-    /*30*/ virtual void* GetKBMap(void) = 0;
+    /*0*/ virtual void* Init(void* (*)(char const*, int*), void* (*)(char const*, int*), CGlobalVarsBase*) = 0;
+    /*1*/ virtual void* PostInit(void) = 0;
+    /*2*/ virtual void* Shutdown(void) = 0;
+    /*3*/ virtual void* ReplayInit(void* (*)(char const*, int*)) = 0;
+    /*4*/ virtual void* ReplayPostInit(void) = 0;
+    /*5*/ virtual void* LevelInitPreEntity(char const*) = 0;
+    /*6*/ virtual void* LevelInitPostEntity(void) = 0;
+    /*7*/ virtual void* LevelShutdown(void) = 0;
+    /*8*/ virtual ClientClass* GetAllClasses(void) = 0;
+    /*9*/ virtual void* HudVidInit(void) = 0;
+    /*10*/ virtual void* HudProcessInput(bool) = 0;
+    /*11*/ virtual void* HudUpdate(bool) = 0;
+    /*12*/ virtual void* HudReset(void) = 0;
+    /*13*/ virtual void* HudText(char const*) = 0;
+    /*14*/ virtual void* IN_ActivateMouse(void) = 0;
+    /*15*/ virtual void* IN_DeactivateMouse(void) = 0;
+    /*16*/ virtual void* IN_Accumulate(void) = 0;
+    /*17*/ virtual void* IN_ClearStates(void) = 0;
+    /*18*/ virtual void* IN_IsKeyDown(char const*, bool&) = 0;
+    /*19*/ virtual void* IN_OnMouseWheeled(int) = 0;
+    /*20*/ virtual void* IN_KeyEvent(int, ButtonCode_t, char const*) = 0;
+    /*21*/ virtual void* CreateMove(int, float, bool) = 0;
+    /*22*/ virtual void* ExtraMouseSample(float, bool) = 0;
+    /*23*/ virtual void* WriteUsercmdDeltaToBuffer(void*, int, int, bool) = 0;
+    /*24*/ virtual void* EncodeUserCmdToBuffer(void*, int) = 0;
+    /*25*/ virtual void* DecodeUserCmdFromBuffer(void*, int) = 0;
+    /*26*/ virtual void* View_Render(RECT*) = 0;
+    /*27*/ virtual void* RenderView(CViewSetup const&, int, int) = 0;
+    /*28*/ virtual void* View_Fade(ScreenFade_t*) = 0;
+    /*29*/ virtual void* SetCrosshairAngle(QAngle const&) = 0;
+    /*30*/ virtual void* InitSprite(CEngineSprite*, char const*) = 0;
+    /*31*/ virtual void* ShutdownSprite(CEngineSprite*) = 0;
+    /*32*/ virtual void* GetSpriteSize(void)const = 0;
+    /*33*/ virtual void* VoiceStatus(int, int) = 0;
+    /*34*/ virtual void* InstallStringTableCallback(char const*) = 0;
+    /*35*/ virtual void* FrameStageNotify(ClientFrameStage_t) = 0;
+    /*36*/ virtual void* DispatchUserMessage(int, void*) = 0;
+    /*37*/ virtual void* SaveInit(int) = 0;
+    /*38*/ virtual void* SaveWriteFields(CSaveRestoreData*, char const*, void*, datamap_t*, typedescription_t*, int) = 0;
+    /*39*/ virtual void* SaveReadFields(CSaveRestoreData*, char const*, void*, datamap_t*, typedescription_t*, int) = 0;
+    /*40*/ virtual void* PreSave(CSaveRestoreData*) = 0;
+    /*41*/ virtual void* Save(CSaveRestoreData*) = 0;
+    /*42*/ virtual void* WriteSaveHeaders(CSaveRestoreData*) = 0;
+    /*43*/ virtual void* ReadRestoreHeaders(CSaveRestoreData*) = 0;
+    /*44*/ virtual void* Restore(CSaveRestoreData*, bool) = 0;
+    /*45*/ virtual void* DispatchOnRestore(void) = 0;
+    /*46*/ virtual void* GetStandardRecvProxies(void) = 0;
+    /*47*/ virtual void* WriteSaveGameScreenshot(char const*) = 0;
+    /*48*/ virtual void* EmitSentenceCloseCaption(char const*) = 0;
+    /*49*/ virtual void* EmitCloseCaption(char const*, float) = 0;
+    /*50*/ virtual void* CanRecordDemo(char*, int)const = 0;
+    /*51*/ virtual void* OnDemoRecordStart(char const*) = 0;
+    /*52*/ virtual void* OnDemoRecordStop(void) = 0;
+    /*53*/ virtual void* OnDemoPlaybackStart(char const*) = 0;
+    /*54*/ virtual void* OnDemoPlaybackStop(void) = 0;
+    /*55*/ virtual void* ShouldDrawDropdownConsole(void) = 0;
+    /*56*/ virtual void* GetScreenWidth(void) = 0;
+    /*57*/ virtual void* GetScreenHeight(void) = 0;
+    /*58*/ virtual void* WriteSaveGameScreenshotOfSize(char const*, int, int, bool, bool) = 0;
+    /*59*/ virtual void* GetPlayerView(CViewSetup&) = 0;
+    /*60*/ virtual void* SetupGameProperties(void*, void*) = 0;
+    /*61*/ virtual void* GetPresenceID(char const*) = 0;
+    /*62*/ virtual void* GetPropertyIdString(unsigned int) = 0;
+    /*63*/ virtual void* GetPropertyDisplayString(unsigned int, unsigned int, char*, int) = 0;
+    /*64*/ virtual void* InvalidateMdlCache(void) = 0;
+    /*65*/ virtual void* IN_SetSampleTime(float) = 0;
+    /*66*/ virtual void* ReloadFilesInList(IFileList*) = 0;
+    /*67*/ virtual void* StartStatsReporting(void*, bool) = 0;
+    /*68*/ virtual void* HandleUiToggle(void) = 0;
+    /*69*/ virtual void* ShouldAllowConsole(void) = 0;
+    /*70*/ virtual void* GetRenamedRecvTableInfos(void) = 0;
+    /*71*/ virtual void* GetClientUIMouthInfo(void) = 0;
+    /*72*/ virtual void* FileReceived(char const*, unsigned int) = 0;
+    /*73*/ virtual void* TranslateEffectForVisionFilter(char const*, char const*) = 0;
+    /*74*/ virtual void* ClientAdjustStartSoundParams(StartSoundParams_t&) = 0;
+    /*75*/ virtual void* DisconnectAttempt(void) = 0;
+    /*76*/ virtual void* IsConnectedUserInfoChangeAllowed(IConVar*) = 0;
 };
 
-class Entity_t : public IClientEntity {
+CHLClient* chlclient;
+
+int GetOffset(RecvTable* pTable, const char* const szVarName) {
+    for (int n = 0; n < pTable->m_nProps; n++) {
+        RecvProp Prop = pTable->m_pProps[n];
+        if (Prop.m_pVarName == szVarName) return Prop.GetOffset();
+
+        RecvTable* pTable = Prop.GetDataTable();
+        if (pTable) {
+            const int nOff = GetOffset(pTable, szVarName);
+            if (nOff) return (nOff + Prop.GetOffset());
+        }
+    }
+    return 0;
+}
+
+int GetNetVar(const char* const szClass, const char* const szVarName) {
+    ClientClass* pCC = chlclient->GetAllClasses();
+    while (pCC) {
+        if (szClass == pCC->m_pNetworkName) {
+            return GetOffset(pCC->m_pRecvTable, szVarName);
+        }
+        pCC = pCC->m_pNext;
+    }
+    return 0;
+}
+
+#define NETVAR(_name, type, table, name) inline type &_name() \
+{ \
+	static const int nOffset = GetNetVar(table, name); \
+	return *reinterpret_cast<type *>(reinterpret_cast<uintptr_t>(this) + nOffset); \
+}
+#define NETVAR_OFFSET(_name, type, table, name, off) inline type &_name() \
+{ \
+	static const int nOffset = GetNetVar(table, name) + off; \
+	return *reinterpret_cast<type *>(reinterpret_cast<uintptr_t>(this) + nOffset); \
+}
+#define OFFSET(type, var, off) type &var() \
+{ \
+	return *reinterpret_cast<type *>(reinterpret_cast<uintptr_t>(this) + off); \
+}
+
+class CSmokeStack {
 public:
+    NETVAR(m_SpreadSpeed, float, "CSmokeStack", "m_SpreadSpeed");
+    NETVAR(m_Speed, float, "CSmokeStack", "m_Speed");
+    NETVAR(m_StartSize, float, "CSmokeStack", "m_StartSize");
+    NETVAR(m_EndSize, float, "CSmokeStack", "m_EndSize");
+    NETVAR(m_Rate, float, "CSmokeStack", "m_Rate");
+    NETVAR(m_JetLength, float, "CSmokeStack", "m_JetLength");
+    NETVAR(m_bEmit, int, "CSmokeStack", "m_bEmit");
+    NETVAR(m_flBaseSpread, float, "CSmokeStack", "m_flBaseSpread");
+    NETVAR(m_flTwist, float, "CSmokeStack", "m_flTwist");
+    NETVAR(m_flRollSpeed, float, "CSmokeStack", "m_flRollSpeed");
+    NETVAR(m_iMaterialModel, int, "CSmokeStack", "m_iMaterialModel");
+    NETVAR(m_vWind, vec3, "CSmokeStack", "m_vWind");
+};
+
+class CFireTrail {
+public:
+    NETVAR(m_nAttachment, int, "CFireTrail", "m_nAttachment");
+    NETVAR(m_flLifetime, float, "CFireTrail", "m_flLifetime");
+};
+
+class SmokeTrail {
+public:
+    NETVAR(m_SpawnRate, float, "SmokeTrail", "m_SpawnRate");
+    NETVAR(m_StartColor, vec3, "SmokeTrail", "m_StartColor");
+    NETVAR(m_EndColor, vec3, "SmokeTrail", "m_EndColor");
+    NETVAR(m_ParticleLifetime, float, "SmokeTrail", "m_ParticleLifetime");
+    NETVAR(m_StopEmitTime, float, "SmokeTrail", "m_StopEmitTime");
+    NETVAR(m_MinSpeed, float, "SmokeTrail", "m_MinSpeed");
+    NETVAR(m_MaxSpeed, float, "SmokeTrail", "m_MaxSpeed");
+    NETVAR(m_MinDirectedSpeed, float, "SmokeTrail", "m_MinDirectedSpeed");
+    NETVAR(m_MaxDirectedSpeed, float, "SmokeTrail", "m_MaxDirectedSpeed");
+    NETVAR(m_StartSize, float, "SmokeTrail", "m_StartSize");
+    NETVAR(m_EndSize, float, "SmokeTrail", "m_EndSize");
+    NETVAR(m_SpawnRadius, float, "SmokeTrail", "m_SpawnRadius");
+    NETVAR(m_bEmit, int, "SmokeTrail", "m_bEmit");
+    NETVAR(m_nAttachment, int, "SmokeTrail", "m_nAttachment");
+    NETVAR(m_Opacity, float, "SmokeTrail", "m_Opacity");
+};
+
+class ParticleSmokeGrenade {
+public:
+    NETVAR(m_flSpawnTime, float, "ParticleSmokeGrenade", "m_flSpawnTime");
+    NETVAR(m_FadeStartTime, float, "ParticleSmokeGrenade", "m_FadeStartTime");
+    NETVAR(m_FadeEndTime, float, "ParticleSmokeGrenade", "m_FadeEndTime");
+    NETVAR(m_CurrentStage, int, "ParticleSmokeGrenade", "m_CurrentStage");
+};
+
+class CParticleFire {
+public:
+    NETVAR(m_vOrigin, vec3, "CParticleFire", "m_vOrigin");
+    NETVAR(m_vDirection, vec3, "CParticleFire", "m_vDirection");
+};
+
+class CWeaponXM1014 {
+public:
+    NETVAR(m_reloadState, int, "CWeaponXM1014", "m_reloadState");
+};
+
+class CWeaponUSP {
+public:
+    NETVAR(m_bSilencerOn, int, "CWeaponUSP", "m_bSilencerOn");
+    NETVAR(m_flDoneSwitchingSilencer, float, "CWeaponUSP", "m_flDoneSwitchingSilencer");
+};
+
+class CWeaponM4A1 {
+public:
+    NETVAR(m_bSilencerOn, int, "CWeaponM4A1", "m_bSilencerOn");
+    NETVAR(m_flDoneSwitchingSilencer, float, "CWeaponM4A1", "m_flDoneSwitchingSilencer");
+};
+
+class CWeaponM3 {
+public:
+    NETVAR(m_reloadState, int, "CWeaponM3", "m_reloadState");
+};
+
+class CKnife {
+public:
+    NETVAR(m_flSmackTime, float, "CKnife", "m_flSmackTime");
+    NETVAR(LocalActiveWeaponKnifeData, RecvTable*, "CKnife", "LocalActiveWeaponKnifeData");
+};
+
+class CWeaponGlock {
+public:
+    NETVAR(m_bBurstMode, int, "CWeaponGlock", "m_bBurstMode");
+    NETVAR(m_iBurstShotsRemaining, int, "CWeaponGlock", "m_iBurstShotsRemaining");
+};
+
+class CWeaponFamas {
+public:
+    NETVAR(m_bBurstMode, int, "CWeaponFamas", "m_bBurstMode");
+    NETVAR(m_iBurstShotsRemaining, int, "CWeaponFamas", "m_iBurstShotsRemaining");
+};
+
+class CWeaponCSBase {
+public:
+    NETVAR(m_weaponMode, int, "CWeaponCSBase", "m_weaponMode");
+    NETVAR(m_fAccuracyPenalty, float, "CWeaponCSBase", "m_fAccuracyPenalty");
+};
+
+class CC4 {
+public:
+    NETVAR(m_bStartedArming, int, "CC4", "m_bStartedArming");
+    NETVAR(m_bBombPlacedAnimation, int, "CC4", "m_bBombPlacedAnimation");
+    NETVAR(m_fArmedTime, float, "CC4", "m_fArmedTime");
+};
+
+class CBaseCSGrenade {
+public:
+    NETVAR(m_bRedraw, int, "CBaseCSGrenade", "m_bRedraw");
+    NETVAR(m_bPinPulled, int, "CBaseCSGrenade", "m_bPinPulled");
+    NETVAR(m_fThrowTime, float, "CBaseCSGrenade", "m_fThrowTime");
+};
+
+class CFootstepControl {
+public:
+    NETVAR(m_source, char*, "CFootstepControl", "m_source");
+    NETVAR(m_destination, char*, "CFootstepControl", "m_destination");
+};
+
+class CCSGameRulesProxy {
+public:
+    NETVAR(m_bFreezePeriod, int, "CCSGameRulesProxy", "m_bFreezePeriod");
+    NETVAR(m_iRoundTime, int, "CCSGameRulesProxy", "m_iRoundTime");
+    NETVAR(m_fRoundStartTime, float, "CCSGameRulesProxy", "m_fRoundStartTime");
+    NETVAR(m_flGameStartTime, float, "CCSGameRulesProxy", "m_flGameStartTime");
+    NETVAR(m_iHostagesRemaining, int, "CCSGameRulesProxy", "m_iHostagesRemaining");
+    NETVAR(m_bMapHasBombTarget, int, "CCSGameRulesProxy", "m_bMapHasBombTarget");
+    NETVAR(m_bMapHasRescueZone, int, "CCSGameRulesProxy", "m_bMapHasRescueZone");
+    NETVAR(m_bLogoMap, int, "CCSGameRulesProxy", "m_bLogoMap");
+    NETVAR(m_bBlackMarket, int, "CCSGameRulesProxy", "m_bBlackMarket");
+    NETVAR(m_bWinterHolidayActive, int, "CCSGameRulesProxy", "m_bWinterHolidayActive");
+    NETVAR(cs_gamerules_data, RecvTable*, "CCSGameRulesProxy", "cs_gamerules_data");
+};
+
+class CTEPlantBomb {
+public:
+    NETVAR(m_vecOrigin, vec3, "CTEPlantBomb", "m_vecOrigin");
+    NETVAR(m_iPlayer, int, "CTEPlantBomb", "m_iPlayer");
+    NETVAR(m_option, int, "CTEPlantBomb", "m_option");
+};
+
+class CTEFireBullets {
+public:
+    NETVAR(m_vecOrigin, vec3, "CTEFireBullets", "m_vecOrigin");
+    NETVAR(m_vecAngles, vec2, "CTEFireBullets", "m_vecAngles[0]");
+    NETVAR(m_iWeaponID, int, "CTEFireBullets", "m_iWeaponID");
+    NETVAR(m_iMode, int, "CTEFireBullets", "m_iMode");
+    NETVAR(m_iSeed, int, "CTEFireBullets", "m_iSeed");
+    NETVAR(m_iPlayer, int, "CTEFireBullets", "m_iPlayer");
+    NETVAR(m_fInaccuracy, float, "CTEFireBullets", "m_fInaccuracy");
+    NETVAR(m_fSpread, float, "CTEFireBullets", "m_fSpread");
+};
+
+class CPlantedC4 {
+public:
+    NETVAR(m_bBombTicking, int, "CPlantedC4", "m_bBombTicking");
+    NETVAR(m_flC4Blow, float, "CPlantedC4", "m_flC4Blow");
+    NETVAR(m_flTimerLength, float, "CPlantedC4", "m_flTimerLength");
+    NETVAR(m_flDefuseLength, float, "CPlantedC4", "m_flDefuseLength");
+    NETVAR(m_flDefuseCountDown, float, "CPlantedC4", "m_flDefuseCountDown");
+};
+
+class CCSPlayerResource {
+public:
+    NETVAR(m_iPlayerC4, int, "CCSPlayerResource", "m_iPlayerC4");
+    NETVAR(m_iPlayerVIP, int, "CCSPlayerResource", "m_iPlayerVIP");
+    NETVAR(m_vecC4, vec3, "CCSPlayerResource", "m_vecC4");
+    NETVAR(m_bHostageAlive, RecvTable*, "CCSPlayerResource", "m_bHostageAlive");
+    NETVAR(m_isHostageFollowingSomeone, RecvTable*, "CCSPlayerResource", "m_isHostageFollowingSomeone");
+    NETVAR(m_iHostageEntityIDs, RecvTable*, "CCSPlayerResource", "m_iHostageEntityIDs");
+    NETVAR(m_iHostageX, RecvTable*, "CCSPlayerResource", "m_iHostageX");
+    NETVAR(m_iHostageY, RecvTable*, "CCSPlayerResource", "m_iHostageY");
+    NETVAR(m_iHostageZ, RecvTable*, "CCSPlayerResource", "m_iHostageZ");
+    NETVAR(m_bombsiteCenterA, vec3, "CCSPlayerResource", "m_bombsiteCenterA");
+    NETVAR(m_bombsiteCenterB, vec3, "CCSPlayerResource", "m_bombsiteCenterB");
+    NETVAR(m_hostageRescueX, RecvTable*, "CCSPlayerResource", "m_hostageRescueX");
+    NETVAR(m_hostageRescueY, RecvTable*, "CCSPlayerResource", "m_hostageRescueY");
+    NETVAR(m_hostageRescueZ, RecvTable*, "CCSPlayerResource", "m_hostageRescueZ");
+    NETVAR(m_bBombSpotted, int, "CCSPlayerResource", "m_bBombSpotted");
+    NETVAR(m_bPlayerSpotted, RecvTable*, "CCSPlayerResource", "m_bPlayerSpotted");
+    NETVAR(m_iMVPs, RecvTable*, "CCSPlayerResource", "m_iMVPs");
+    NETVAR(m_bHasDefuser, RecvTable*, "CCSPlayerResource", "m_bHasDefuser");
+    NETVAR(m_szClan, RecvTable*, "CCSPlayerResource", "m_szClan");
+};
+
+class CCSPlayer {
+public:
+    NETVAR(m_flStamina, float, "CCSPlayer", "m_flStamina");
+    NETVAR(m_iDirection, int, "CCSPlayer", "m_iDirection");
+    NETVAR(m_iShotsFired, int, "CCSPlayer", "m_iShotsFired");
+    NETVAR(m_flVelocityModifier, float, "CCSPlayer", "m_flVelocityModifier");
+    //NETVAR(m_vecOrigin, vec3, "CCSPlayer", "m_vecOrigin");
+    NETVAR(m_bPlayerDominated, RecvTable*, "CCSPlayer", "m_bPlayerDominated");
+    NETVAR(m_bPlayerDominatingMe, RecvTable*, "CCSPlayer", "m_bPlayerDominatingMe");
+    NETVAR(cslocaldata, RecvTable*, "CCSPlayer", "cslocaldata");
+    NETVAR(csnonlocaldata, RecvTable*, "CCSPlayer", "csnonlocaldata");
+    NETVAR(m_iAddonBits, int, "CCSPlayer", "m_iAddonBits");
+    NETVAR(m_iPrimaryAddon, int, "CCSPlayer", "m_iPrimaryAddon");
+    NETVAR(m_iSecondaryAddon, int, "CCSPlayer", "m_iSecondaryAddon");
+    NETVAR(m_iThrowGrenadeCounter, int, "CCSPlayer", "m_iThrowGrenadeCounter");
+    NETVAR(m_iPlayerState, int, "CCSPlayer", "m_iPlayerState");
+    NETVAR(m_iAccount, int, "CCSPlayer", "m_iAccount");
+    NETVAR(m_bInBombZone, int, "CCSPlayer", "m_bInBombZone");
+    NETVAR(m_bInBuyZone, int, "CCSPlayer", "m_bInBuyZone");
+    NETVAR(m_iClass, int, "CCSPlayer", "m_iClass");
+    NETVAR(m_ArmorValue, int, "CCSPlayer", "m_ArmorValue");
+    NETVAR(m_angEyeAngles, vec2, "CCSPlayer", "m_angEyeAngles[0]");
+    NETVAR(m_bHasDefuser, int, "CCSPlayer", "m_bHasDefuser");
+    NETVAR(m_bNightVisionOn, int, "CCSPlayer", "m_bNightVisionOn");
+    NETVAR(m_bHasNightVision, int, "CCSPlayer", "m_bHasNightVision");
+    NETVAR(m_bInHostageRescueZone, int, "CCSPlayer", "m_bInHostageRescueZone");
+    NETVAR(m_bIsDefusing, int, "CCSPlayer", "m_bIsDefusing");
+    NETVAR(m_bResumeZoom, int, "CCSPlayer", "m_bResumeZoom");
+    NETVAR(m_iLastZoom, int, "CCSPlayer", "m_iLastZoom");
+    NETVAR(m_bHasHelmet, int, "CCSPlayer", "m_bHasHelmet");
+    NETVAR(m_vecRagdollVelocity, vec3, "CCSPlayer", "m_vecRagdollVelocity");
+    NETVAR(m_flFlashDuration, float, "CCSPlayer", "m_flFlashDuration");
+    NETVAR(m_flFlashMaxAlpha, float, "CCSPlayer", "m_flFlashMaxAlpha");
+    NETVAR(m_iProgressBarDuration, int, "CCSPlayer", "m_iProgressBarDuration");
+    NETVAR(m_flProgressBarStartTime, float, "CCSPlayer", "m_flProgressBarStartTime");
+    NETVAR(m_hRagdoll, int, "CCSPlayer", "m_hRagdoll");
+    NETVAR(m_cycleLatch, int, "CCSPlayer", "m_cycleLatch");
+};
+
+class CCSRagdoll {
+public:
+    NETVAR(m_vecOrigin, vec3, "CCSRagdoll", "m_vecOrigin");
+    NETVAR(m_vecRagdollOrigin, vec3, "CCSRagdoll", "m_vecRagdollOrigin");
+    NETVAR(m_hPlayer, int, "CCSRagdoll", "m_hPlayer");
+    NETVAR(m_nModelIndex, int, "CCSRagdoll", "m_nModelIndex");
+    NETVAR(m_nForceBone, int, "CCSRagdoll", "m_nForceBone");
+    NETVAR(m_vecForce, vec3, "CCSRagdoll", "m_vecForce");
+    NETVAR(m_vecRagdollVelocity, vec3, "CCSRagdoll", "m_vecRagdollVelocity");
+    NETVAR(m_iDeathPose, int, "CCSRagdoll", "m_iDeathPose");
+    NETVAR(m_iDeathFrame, int, "CCSRagdoll", "m_iDeathFrame");
+    NETVAR(m_iTeamNum, int, "CCSRagdoll", "m_iTeamNum");
+    NETVAR(m_bClientSideAnimation, int, "CCSRagdoll", "m_bClientSideAnimation");
+};
+
+class CTEPlayerAnimEvent {
+public:
+    NETVAR(m_hPlayer, int, "CTEPlayerAnimEvent", "m_hPlayer");
+    NETVAR(m_iEvent, int, "CTEPlayerAnimEvent", "m_iEvent");
+    NETVAR(m_nData, int, "CTEPlayerAnimEvent", "m_nData");
+};
+
+class CHostage {
+public:
+    NETVAR(m_isRescued, int, "CHostage", "m_isRescued");
+    NETVAR(m_iHealth, int, "CHostage", "m_iHealth");
+    NETVAR(m_iMaxHealth, int, "CHostage", "m_iMaxHealth");
+    NETVAR(m_lifeState, int, "CHostage", "m_lifeState");
+    NETVAR(m_leader, int, "CHostage", "m_leader");
+};
+
+class CBaseCSGrenadeProjectile {
+public:
+    NETVAR(m_vInitialVelocity, vec3, "CBaseCSGrenadeProjectile", "m_vInitialVelocity");
+};
+
+class CPoseController {
+public:
+    NETVAR(m_hProps, RecvTable*, "CPoseController", "m_hProps");
+    NETVAR(m_chPoseIndex, RecvTable*, "CPoseController", "m_chPoseIndex");
+    NETVAR(m_bPoseValueParity, int, "CPoseController", "m_bPoseValueParity");
+    NETVAR(m_fPoseValue, float, "CPoseController", "m_fPoseValue");
+    NETVAR(m_fInterpolationTime, float, "CPoseController", "m_fInterpolationTime");
+    NETVAR(m_bInterpolationWrap, int, "CPoseController", "m_bInterpolationWrap");
+    NETVAR(m_fCycleFrequency, float, "CPoseController", "m_fCycleFrequency");
+    NETVAR(m_nFModType, int, "CPoseController", "m_nFModType");
+    NETVAR(m_fFModTimeOffset, float, "CPoseController", "m_fFModTimeOffset");
+    NETVAR(m_fFModRate, float, "CPoseController", "m_fFModRate");
+    NETVAR(m_fFModAmplitude, float, "CPoseController", "m_fFModAmplitude");
+};
+
+class CFuncLadder {
+public:
+    NETVAR(m_vecPlayerMountPositionTop, vec3, "CFuncLadder", "m_vecPlayerMountPositionTop");
+    NETVAR(m_vecPlayerMountPositionBottom, vec3, "CFuncLadder", "m_vecPlayerMountPositionBottom");
+    NETVAR(m_vecLadderDir, vec3, "CFuncLadder", "m_vecLadderDir");
+    NETVAR(m_bFakeLadder, int, "CFuncLadder", "m_bFakeLadder");
+};
+
+class CEnvDetailController {
+public:
+    NETVAR(m_flFadeStartDist, float, "CEnvDetailController", "m_flFadeStartDist");
+    NETVAR(m_flFadeEndDist, float, "CEnvDetailController", "m_flFadeEndDist");
+};
+
+class CWorld {
+public:
+    NETVAR(m_flWaveHeight, float, "CWorld", "m_flWaveHeight");
+    NETVAR(m_WorldMins, vec3, "CWorld", "m_WorldMins");
+    NETVAR(m_WorldMaxs, vec3, "CWorld", "m_WorldMaxs");
+    NETVAR(m_bStartDark, int, "CWorld", "m_bStartDark");
+    NETVAR(m_flMaxOccludeeArea, float, "CWorld", "m_flMaxOccludeeArea");
+    NETVAR(m_flMinOccluderArea, float, "CWorld", "m_flMinOccluderArea");
+    NETVAR(m_flMaxPropScreenSpaceWidth, float, "CWorld", "m_flMaxPropScreenSpaceWidth");
+    NETVAR(m_flMinPropScreenSpaceWidth, float, "CWorld", "m_flMinPropScreenSpaceWidth");
+    NETVAR(m_iszDetailSpriteMaterial, char*, "CWorld", "m_iszDetailSpriteMaterial");
+    NETVAR(m_bColdWorld, int, "CWorld", "m_bColdWorld");
+};
+
+class CVoteController {
+public:
+    NETVAR(m_iActiveIssueIndex, int, "CVoteController", "m_iActiveIssueIndex");
+    NETVAR(m_nVoteIdx, int, "CVoteController", "m_nVoteIdx");
+    NETVAR(m_iOnlyTeamToVote, int, "CVoteController", "m_iOnlyTeamToVote");
+    NETVAR(m_nVoteOptionCount, RecvTable*, "CVoteController", "m_nVoteOptionCount");
+    NETVAR(m_nPotentialVotes, int, "CVoteController", "m_nPotentialVotes");
+    NETVAR(m_bIsYesNoVote, int, "CVoteController", "m_bIsYesNoVote");
+};
+
+class CVGuiScreen {
+public:
+    NETVAR(m_flWidth, float, "CVGuiScreen", "m_flWidth");
+    NETVAR(m_flHeight, float, "CVGuiScreen", "m_flHeight");
+    NETVAR(m_fScreenFlags, int, "CVGuiScreen", "m_fScreenFlags");
+    NETVAR(m_nPanelName, int, "CVGuiScreen", "m_nPanelName");
+    NETVAR(m_nAttachmentIndex, int, "CVGuiScreen", "m_nAttachmentIndex");
+    NETVAR(m_nOverlayMaterial, int, "CVGuiScreen", "m_nOverlayMaterial");
+    NETVAR(m_hPlayerOwner, int, "CVGuiScreen", "m_hPlayerOwner");
+};
+
+class CTeam {
+public:
+    NETVAR(m_iTeamNum, int, "CTeam", "m_iTeamNum");
+    NETVAR(m_iScore, int, "CTeam", "m_iScore");
+    NETVAR(m_iRoundsWon, int, "CTeam", "m_iRoundsWon");
+    NETVAR(m_szTeamname, char*, "CTeam", "m_szTeamname");
+    NETVAR(player_array_element, int, "CTeam", "player_array_element");
+};
+
+class CSun {
+public:
+    NETVAR(m_clrRender, int, "CSun", "m_clrRender");
+    NETVAR(m_clrOverlay, int, "CSun", "m_clrOverlay");
+    NETVAR(m_vDirection, vec3, "CSun", "m_vDirection");
+    NETVAR(m_bOn, int, "CSun", "m_bOn");
+    NETVAR(m_nSize, int, "CSun", "m_nSize");
+    NETVAR(m_nOverlaySize, int, "CSun", "m_nOverlaySize");
+    NETVAR(m_nMaterial, int, "CSun", "m_nMaterial");
+    NETVAR(m_nOverlayMaterial, int, "CSun", "m_nOverlayMaterial");
+    NETVAR(HDRColorScale, float, "CSun", "HDRColorScale");
+};
+
+class CParticlePerformanceMonitor {
+public:
+    NETVAR(m_bMeasurePerf, int, "CParticlePerformanceMonitor", "m_bMeasurePerf");
+    NETVAR(m_bDisplayPerf, int, "CParticlePerformanceMonitor", "m_bDisplayPerf");
+};
+
+class CSpotlightEnd {
+public:
+    NETVAR(m_flLightScale, float, "CSpotlightEnd", "m_flLightScale");
+    NETVAR(m_Radius, float, "CSpotlightEnd", "m_Radius");
+};
+
+class CSlideshowDisplay {
+public:
+    NETVAR(m_bEnabled, int, "CSlideshowDisplay", "m_bEnabled");
+    NETVAR(m_szDisplayText, char*, "CSlideshowDisplay", "m_szDisplayText");
+    NETVAR(m_szSlideshowDirectory, char*, "CSlideshowDisplay", "m_szSlideshowDirectory");
+    NETVAR(m_chCurrentSlideLists, RecvTable*, "CSlideshowDisplay", "m_chCurrentSlideLists");
+    NETVAR(m_fMinSlideTime, float, "CSlideshowDisplay", "m_fMinSlideTime");
+    NETVAR(m_fMaxSlideTime, float, "CSlideshowDisplay", "m_fMaxSlideTime");
+    NETVAR(m_iCycleType, int, "CSlideshowDisplay", "m_iCycleType");
+    NETVAR(m_bNoListRepeats, int, "CSlideshowDisplay", "m_bNoListRepeats");
+};
+
+class CShadowControl {
+public:
+    NETVAR(m_shadowDirection, vec3, "CShadowControl", "m_shadowDirection");
+    NETVAR(m_shadowColor, int, "CShadowControl", "m_shadowColor");
+    NETVAR(m_flShadowMaxDist, float, "CShadowControl", "m_flShadowMaxDist");
+    NETVAR(m_bDisableShadows, int, "CShadowControl", "m_bDisableShadows");
+};
+
+class CSceneEntity {
+public:
+    NETVAR(m_nSceneStringIndex, int, "CSceneEntity", "m_nSceneStringIndex");
+    NETVAR(m_bIsPlayingBack, int, "CSceneEntity", "m_bIsPlayingBack");
+    NETVAR(m_bPaused, int, "CSceneEntity", "m_bPaused");
+    NETVAR(m_bMultiplayer, int, "CSceneEntity", "m_bMultiplayer");
+    NETVAR(m_flForceClientTime, float, "CSceneEntity", "m_flForceClientTime");
+    NETVAR(m_hActorList, RecvTable*, "CSceneEntity", "m_hActorList");
+};
+
+class CPointWorldText {
+public:
+    NETVAR(m_szText, char*, "CPointWorldText", "m_szText");
+    NETVAR(m_flTextSize, float, "CPointWorldText", "m_flTextSize");
+    NETVAR(m_flTextSpacingX, float, "CPointWorldText", "m_flTextSpacingX");
+    NETVAR(m_flTextSpacingY, float, "CPointWorldText", "m_flTextSpacingY");
+    NETVAR(m_colTextColor, int, "CPointWorldText", "m_colTextColor");
+    NETVAR(m_nOrientation, int, "CPointWorldText", "m_nOrientation");
+    NETVAR(m_nFont, int, "CPointWorldText", "m_nFont");
+    NETVAR(m_bRainbow, int, "CPointWorldText", "m_bRainbow");
+};
+
+class CPointCommentaryNode {
+public:
+    NETVAR(m_bActive, int, "CPointCommentaryNode", "m_bActive");
+    NETVAR(m_flStartTime, float, "CPointCommentaryNode", "m_flStartTime");
+    NETVAR(m_iszCommentaryFile, char*, "CPointCommentaryNode", "m_iszCommentaryFile");
+    NETVAR(m_iszCommentaryFileNoHDR, char*, "CPointCommentaryNode", "m_iszCommentaryFileNoHDR");
+    NETVAR(m_iszSpeakers, char*, "CPointCommentaryNode", "m_iszSpeakers");
+    NETVAR(m_iNodeNumber, int, "CPointCommentaryNode", "m_iNodeNumber");
+    NETVAR(m_iNodeNumberMax, int, "CPointCommentaryNode", "m_iNodeNumberMax");
+    NETVAR(m_hViewPosition, int, "CPointCommentaryNode", "m_hViewPosition");
+};
+
+class CPointCamera {
+public:
+    NETVAR(m_FOV, float, "CPointCamera", "m_FOV");
+    NETVAR(m_Resolution, float, "CPointCamera", "m_Resolution");
+    NETVAR(m_bFogEnable, int, "CPointCamera", "m_bFogEnable");
+    NETVAR(m_FogColor, int, "CPointCamera", "m_FogColor");
+    NETVAR(m_flFogStart, float, "CPointCamera", "m_flFogStart");
+    NETVAR(m_flFogEnd, float, "CPointCamera", "m_flFogEnd");
+    NETVAR(m_flFogMaxDensity, float, "CPointCamera", "m_flFogMaxDensity");
+    NETVAR(m_bFogRadial, int, "CPointCamera", "m_bFogRadial");
+    NETVAR(m_bActive, int, "CPointCamera", "m_bActive");
+    NETVAR(m_bUseScreenAspectRatio, int, "CPointCamera", "m_bUseScreenAspectRatio");
+};
+
+class CPlayerResource {
+public:
+    NETVAR(m_iPing, RecvTable*, "CPlayerResource", "m_iPing");
+    NETVAR(m_iScore, RecvTable*, "CPlayerResource", "m_iScore");
+    NETVAR(m_iDeaths, RecvTable*, "CPlayerResource", "m_iDeaths");
+    NETVAR(m_bConnected, RecvTable*, "CPlayerResource", "m_bConnected");
+    NETVAR(m_iTeam, RecvTable*, "CPlayerResource", "m_iTeam");
+    NETVAR(m_bAlive, RecvTable*, "CPlayerResource", "m_bAlive");
+    NETVAR(m_iHealth, RecvTable*, "CPlayerResource", "m_iHealth");
+    NETVAR(m_iAccountID, RecvTable*, "CPlayerResource", "m_iAccountID");
+    NETVAR(m_bValid, RecvTable*, "CPlayerResource", "m_bValid");
+    NETVAR(m_iUserID, RecvTable*, "CPlayerResource", "m_iUserID");
+};
+
+class CPlasma {
+public:
+    NETVAR(m_flStartScale, float, "CPlasma", "m_flStartScale");
+    NETVAR(m_flScale, float, "CPlasma", "m_flScale");
+    NETVAR(m_flScaleTime, float, "CPlasma", "m_flScaleTime");
+    NETVAR(m_nFlags, int, "CPlasma", "m_nFlags");
+    NETVAR(m_nPlasmaModelIndex, int, "CPlasma", "m_nPlasmaModelIndex");
+    NETVAR(m_nPlasmaModelIndex2, int, "CPlasma", "m_nPlasmaModelIndex2");
+    NETVAR(m_nGlowModelIndex, int, "CPlasma", "m_nGlowModelIndex");
+};
+
+class CPhysicsProp {
+public:
+    NETVAR(m_bAwake, int, "CPhysicsProp", "m_bAwake");
+};
+
+class CPhysBox {
+public:
+    NETVAR(m_mass, float, "CPhysBox", "m_mass");
+};
+
+class CParticleSystem {
+public:
+    NETVAR(m_vecOrigin, vec3, "CParticleSystem", "m_vecOrigin");
+    NETVAR(m_hOwnerEntity, int, "CParticleSystem", "m_hOwnerEntity");
+    NETVAR(moveparent, int, "CParticleSystem", "moveparent");
+    NETVAR(m_iParentAttachment, int, "CParticleSystem", "m_iParentAttachment");
+    NETVAR(m_angRotation, vec3, "CParticleSystem", "m_angRotation");
+    NETVAR(m_iEffectIndex, int, "CParticleSystem", "m_iEffectIndex");
+    NETVAR(m_bActive, int, "CParticleSystem", "m_bActive");
+    NETVAR(m_flStartTime, float, "CParticleSystem", "m_flStartTime");
+    NETVAR(m_hControlPointEnts, RecvTable*, "CParticleSystem", "m_hControlPointEnts");
+    NETVAR(m_iControlPointParents, RecvTable*, "CParticleSystem", "m_iControlPointParents");
+    NETVAR(m_bWeatherEffect, int, "CParticleSystem", "m_bWeatherEffect");
+};
+
+class CMaterialModifyControl {
+public:
+    NETVAR(m_szMaterialName, char*, "CMaterialModifyControl", "m_szMaterialName");
+    NETVAR(m_szMaterialVar, char*, "CMaterialModifyControl", "m_szMaterialVar");
+    NETVAR(m_szMaterialVarValue, char*, "CMaterialModifyControl", "m_szMaterialVarValue");
+    NETVAR(m_iFrameStart, int, "CMaterialModifyControl", "m_iFrameStart");
+    NETVAR(m_iFrameEnd, int, "CMaterialModifyControl", "m_iFrameEnd");
+    NETVAR(m_bWrap, int, "CMaterialModifyControl", "m_bWrap");
+    NETVAR(m_flFramerate, float, "CMaterialModifyControl", "m_flFramerate");
+    NETVAR(m_bNewAnimCommandsSemaphore, int, "CMaterialModifyControl", "m_bNewAnimCommandsSemaphore");
+    NETVAR(m_flFloatLerpStartValue, float, "CMaterialModifyControl", "m_flFloatLerpStartValue");
+    NETVAR(m_flFloatLerpEndValue, float, "CMaterialModifyControl", "m_flFloatLerpEndValue");
+    NETVAR(m_flFloatLerpTransitionTime, float, "CMaterialModifyControl", "m_flFloatLerpTransitionTime");
+    NETVAR(m_bFloatLerpWrap, int, "CMaterialModifyControl", "m_bFloatLerpWrap");
+    NETVAR(m_nModifyMode, int, "CMaterialModifyControl", "m_nModifyMode");
+};
+
+class CLightGlow {
+public:
+    NETVAR(m_clrRender, int, "CLightGlow", "m_clrRender");
+    NETVAR(m_nHorizontalSize, int, "CLightGlow", "m_nHorizontalSize");
+    NETVAR(m_nVerticalSize, int, "CLightGlow", "m_nVerticalSize");
+    NETVAR(m_nMinDist, int, "CLightGlow", "m_nMinDist");
+    NETVAR(m_nMaxDist, int, "CLightGlow", "m_nMaxDist");
+    NETVAR(m_nOuterMaxDist, int, "CLightGlow", "m_nOuterMaxDist");
+    NETVAR(m_spawnflags, int, "CLightGlow", "m_spawnflags");
+    NETVAR(m_vecOrigin, vec3, "CLightGlow", "m_vecOrigin");
+    NETVAR(m_angRotation, vec3, "CLightGlow", "m_angRotation");
+    NETVAR(moveparent, int, "CLightGlow", "moveparent");
+    NETVAR(m_flGlowProxySize, float, "CLightGlow", "m_flGlowProxySize");
+    NETVAR(HDRColorScale, float, "CLightGlow", "HDRColorScale");
+};
+
+class CInfoOverlayAccessor {
+public:
+    NETVAR(m_iTextureFrameIndex, int, "CInfoOverlayAccessor", "m_iTextureFrameIndex");
+    NETVAR(m_iOverlayID, int, "CInfoOverlayAccessor", "m_iOverlayID");
+};
+
+class CFuncSmokeVolume {
+public:
+    NETVAR(m_Color1, int, "CFuncSmokeVolume", "m_Color1");
+    NETVAR(m_Color2, int, "CFuncSmokeVolume", "m_Color2");
+    NETVAR(m_MaterialName, char*, "CFuncSmokeVolume", "m_MaterialName");
+    NETVAR(m_ParticleDrawWidth, float, "CFuncSmokeVolume", "m_ParticleDrawWidth");
+    NETVAR(m_ParticleSpacingDistance, float, "CFuncSmokeVolume", "m_ParticleSpacingDistance");
+    NETVAR(m_DensityRampSpeed, float, "CFuncSmokeVolume", "m_DensityRampSpeed");
+    NETVAR(m_RotationSpeed, float, "CFuncSmokeVolume", "m_RotationSpeed");
+    NETVAR(m_MovementSpeed, float, "CFuncSmokeVolume", "m_MovementSpeed");
+    NETVAR(m_Density, float, "CFuncSmokeVolume", "m_Density");
+    NETVAR(m_spawnflags, int, "CFuncSmokeVolume", "m_spawnflags");
+    NETVAR(m_vecMinsPreScaled, vec3, "CFuncSmokeVolume", "m_vecMinsPreScaled");
+    NETVAR(m_vecMaxsPreScaled, vec3, "CFuncSmokeVolume", "m_vecMaxsPreScaled");
+    NETVAR(m_vecMins, vec3, "CFuncSmokeVolume", "m_vecMins");
+    NETVAR(m_vecMaxs, vec3, "CFuncSmokeVolume", "m_vecMaxs");
+    NETVAR(m_nSolidType, int, "CFuncSmokeVolume", "m_nSolidType");
+    NETVAR(m_usSolidFlags, int, "CFuncSmokeVolume", "m_usSolidFlags");
+    NETVAR(m_nSurroundType, int, "CFuncSmokeVolume", "m_nSurroundType");
+    NETVAR(m_triggerBloat, int, "CFuncSmokeVolume", "m_triggerBloat");
+    NETVAR(m_bUniformTriggerBloat, int, "CFuncSmokeVolume", "m_bUniformTriggerBloat");
+    NETVAR(m_vecSpecifiedSurroundingMinsPreScaled, vec3, "CFuncSmokeVolume", "m_vecSpecifiedSurroundingMinsPreScaled");
+    NETVAR(m_vecSpecifiedSurroundingMaxsPreScaled, vec3, "CFuncSmokeVolume", "m_vecSpecifiedSurroundingMaxsPreScaled");
+    NETVAR(m_vecSpecifiedSurroundingMins, vec3, "CFuncSmokeVolume", "m_vecSpecifiedSurroundingMins");
+    NETVAR(m_vecSpecifiedSurroundingMaxs, vec3, "CFuncSmokeVolume", "m_vecSpecifiedSurroundingMaxs");
+    NETVAR(m_Collision, RecvTable*, "CFuncSmokeVolume", "m_Collision");
+};
+
+class CFuncRotating {
+public:
+    NETVAR(m_vecOrigin, vec3, "CFuncRotating", "m_vecOrigin");
+    NETVAR(m_angRotation, vec3, "CFuncRotating", "m_angRotation[0]");
+    NETVAR(m_flSimulationTime, int, "CFuncRotating", "m_flSimulationTime");
+};
+
+class CFuncOccluder {
+public:
+    NETVAR(m_bActive, int, "CFuncOccluder", "m_bActive");
+    NETVAR(m_nOccluderIndex, int, "CFuncOccluder", "m_nOccluderIndex");
+};
+
+class CFunc_LOD {
+public:
+    NETVAR(m_fDisappearDist, float, "CFunc_LOD", "m_fDisappearDist");
+};
+
+class CTEDust {
+public:
+    NETVAR(m_flSize, float, "CTEDust", "m_flSize");
+    NETVAR(m_flSpeed, float, "CTEDust", "m_flSpeed");
+    NETVAR(m_vecDirection, vec3, "CTEDust", "m_vecDirection");
+};
+
+class CFunc_Dust {
+public:
+    NETVAR(m_Color, int, "CFunc_Dust", "m_Color");
+    NETVAR(m_SpawnRate, int, "CFunc_Dust", "m_SpawnRate");
+    NETVAR(m_flSizeMin, float, "CFunc_Dust", "m_flSizeMin");
+    NETVAR(m_flSizeMax, float, "CFunc_Dust", "m_flSizeMax");
+    NETVAR(m_LifetimeMin, int, "CFunc_Dust", "m_LifetimeMin");
+    NETVAR(m_LifetimeMax, int, "CFunc_Dust", "m_LifetimeMax");
+    NETVAR(m_DustFlags, int, "CFunc_Dust", "m_DustFlags");
+    NETVAR(m_SpeedMax, int, "CFunc_Dust", "m_SpeedMax");
+    NETVAR(m_DistMax, int, "CFunc_Dust", "m_DistMax");
+    NETVAR(m_nModelIndex, int, "CFunc_Dust", "m_nModelIndex");
+    NETVAR(m_FallSpeed, float, "CFunc_Dust", "m_FallSpeed");
+    NETVAR(m_vecMinsPreScaled, vec3, "CFunc_Dust", "m_vecMinsPreScaled");
+    NETVAR(m_vecMaxsPreScaled, vec3, "CFunc_Dust", "m_vecMaxsPreScaled");
+    NETVAR(m_vecMins, vec3, "CFunc_Dust", "m_vecMins");
+    NETVAR(m_vecMaxs, vec3, "CFunc_Dust", "m_vecMaxs");
+    NETVAR(m_nSolidType, int, "CFunc_Dust", "m_nSolidType");
+    NETVAR(m_usSolidFlags, int, "CFunc_Dust", "m_usSolidFlags");
+    NETVAR(m_nSurroundType, int, "CFunc_Dust", "m_nSurroundType");
+    NETVAR(m_triggerBloat, int, "CFunc_Dust", "m_triggerBloat");
+    NETVAR(m_bUniformTriggerBloat, int, "CFunc_Dust", "m_bUniformTriggerBloat");
+    NETVAR(m_vecSpecifiedSurroundingMinsPreScaled, vec3, "CFunc_Dust", "m_vecSpecifiedSurroundingMinsPreScaled");
+    NETVAR(m_vecSpecifiedSurroundingMaxsPreScaled, vec3, "CFunc_Dust", "m_vecSpecifiedSurroundingMaxsPreScaled");
+    NETVAR(m_vecSpecifiedSurroundingMins, vec3, "CFunc_Dust", "m_vecSpecifiedSurroundingMins");
+    NETVAR(m_vecSpecifiedSurroundingMaxs, vec3, "CFunc_Dust", "m_vecSpecifiedSurroundingMaxs");
+    NETVAR(m_Collision, RecvTable*, "CFunc_Dust", "m_Collision");
+};
+
+class CFuncConveyor {
+public:
+    NETVAR(m_flConveyorSpeed, float, "CFuncConveyor", "m_flConveyorSpeed");
+};
+
+class CBreakableSurface {
+public:
+    NETVAR(m_nNumWide, int, "CBreakableSurface", "m_nNumWide");
+    NETVAR(m_nNumHigh, int, "CBreakableSurface", "m_nNumHigh");
+    NETVAR(m_flPanelWidth, float, "CBreakableSurface", "m_flPanelWidth");
+    NETVAR(m_flPanelHeight, float, "CBreakableSurface", "m_flPanelHeight");
+    NETVAR(m_vNormal, vec3, "CBreakableSurface", "m_vNormal");
+    NETVAR(m_vCorner, vec3, "CBreakableSurface", "m_vCorner");
+    NETVAR(m_bIsBroken, int, "CBreakableSurface", "m_bIsBroken");
+    NETVAR(m_nSurfaceType, int, "CBreakableSurface", "m_nSurfaceType");
+    NETVAR(m_RawPanelBitVec, RecvTable*, "CBreakableSurface", "m_RawPanelBitVec");
+};
+
+class CFuncAreaPortalWindow {
+public:
+    NETVAR(m_flFadeStartDist, float, "CFuncAreaPortalWindow", "m_flFadeStartDist");
+    NETVAR(m_flFadeDist, float, "CFuncAreaPortalWindow", "m_flFadeDist");
+    NETVAR(m_flTranslucencyLimit, float, "CFuncAreaPortalWindow", "m_flTranslucencyLimit");
+    NETVAR(m_iBackgroundModelIndex, int, "CFuncAreaPortalWindow", "m_iBackgroundModelIndex");
+};
+
+class CFish {
+public:
+    NETVAR(m_poolOrigin, vec3, "CFish", "m_poolOrigin");
+    NETVAR(m_x, float, "CFish", "m_x");
+    NETVAR(m_y, float, "CFish", "m_y");
+    NETVAR(m_z, float, "CFish", "m_z");
+    NETVAR(m_angle, float, "CFish", "m_angle");
+    NETVAR(m_nModelIndex, int, "CFish", "m_nModelIndex");
+    NETVAR(m_lifeState, int, "CFish", "m_lifeState");
+    NETVAR(m_waterLevel, float, "CFish", "m_waterLevel");
+};
+
+class CEntityFlame {
+public:
+    NETVAR(m_hEntAttached, int, "CEntityFlame", "m_hEntAttached");
+};
+
+class CFireSmoke {
+public:
+    NETVAR(m_flStartScale, float, "CFireSmoke", "m_flStartScale");
+    NETVAR(m_flScale, float, "CFireSmoke", "m_flScale");
+    NETVAR(m_flScaleTime, float, "CFireSmoke", "m_flScaleTime");
+    NETVAR(m_nFlags, int, "CFireSmoke", "m_nFlags");
+    NETVAR(m_nFlameModelIndex, int, "CFireSmoke", "m_nFlameModelIndex");
+    NETVAR(m_nFlameFromAboveModelIndex, int, "CFireSmoke", "m_nFlameFromAboveModelIndex");
+};
+
+class CEnvTonemapController {
+public:
+    NETVAR(m_bUseCustomAutoExposureMin, int, "CEnvTonemapController", "m_bUseCustomAutoExposureMin");
+    NETVAR(m_bUseCustomAutoExposureMax, int, "CEnvTonemapController", "m_bUseCustomAutoExposureMax");
+    NETVAR(m_bUseCustomBloomScale, int, "CEnvTonemapController", "m_bUseCustomBloomScale");
+    NETVAR(m_flCustomAutoExposureMin, float, "CEnvTonemapController", "m_flCustomAutoExposureMin");
+    NETVAR(m_flCustomAutoExposureMax, float, "CEnvTonemapController", "m_flCustomAutoExposureMax");
+    NETVAR(m_flCustomBloomScale, float, "CEnvTonemapController", "m_flCustomBloomScale");
+    NETVAR(m_flCustomBloomScaleMinimum, float, "CEnvTonemapController", "m_flCustomBloomScaleMinimum");
+};
+
+class CEnvScreenEffect {
+public:
+    NETVAR(m_flDuration, float, "CEnvScreenEffect", "m_flDuration");
+    NETVAR(m_nType, int, "CEnvScreenEffect", "m_nType");
+};
+
+class CEnvProjectedTexture {
+public:
+    NETVAR(m_hTargetEntity, int, "CEnvProjectedTexture", "m_hTargetEntity");
+    NETVAR(m_bState, int, "CEnvProjectedTexture", "m_bState");
+    NETVAR(m_flLightFOV, float, "CEnvProjectedTexture", "m_flLightFOV");
+    NETVAR(m_bEnableShadows, int, "CEnvProjectedTexture", "m_bEnableShadows");
+    NETVAR(m_bLightOnlyTarget, int, "CEnvProjectedTexture", "m_bLightOnlyTarget");
+    NETVAR(m_bLightWorld, int, "CEnvProjectedTexture", "m_bLightWorld");
+    NETVAR(m_bCameraSpace, int, "CEnvProjectedTexture", "m_bCameraSpace");
+    NETVAR(m_LinearFloatLightColor, vec3, "CEnvProjectedTexture", "m_LinearFloatLightColor");
+    NETVAR(m_flAmbient, float, "CEnvProjectedTexture", "m_flAmbient");
+    NETVAR(m_SpotlightTextureName, char*, "CEnvProjectedTexture", "m_SpotlightTextureName");
+    NETVAR(m_nSpotlightTextureFrame, int, "CEnvProjectedTexture", "m_nSpotlightTextureFrame");
+    NETVAR(m_flNearZ, float, "CEnvProjectedTexture", "m_flNearZ");
+    NETVAR(m_flFarZ, float, "CEnvProjectedTexture", "m_flFarZ");
+    NETVAR(m_nShadowQuality, int, "CEnvProjectedTexture", "m_nShadowQuality");
+};
+
+class CEnvParticleScript {
+public:
+    NETVAR(m_flSequenceScale, float, "CEnvParticleScript", "m_flSequenceScale");
+};
+
+class CEntityParticleTrail {
+public:
+    NETVAR(m_iMaterialName, int, "CEntityParticleTrail", "m_iMaterialName");
+    NETVAR(m_flLifetime, float, "CEntityParticleTrail", "m_flLifetime");
+    NETVAR(m_flStartSize, float, "CEntityParticleTrail", "m_flStartSize");
+    NETVAR(m_flEndSize, float, "CEntityParticleTrail", "m_flEndSize");
+    NETVAR(m_Info, RecvTable*, "CEntityParticleTrail", "m_Info");
+    NETVAR(m_hConstraintEntity, int, "CEntityParticleTrail", "m_hConstraintEntity");
+};
+
+class CEntityDissolve {
+public:
+    NETVAR(m_flStartTime, float, "CEntityDissolve", "m_flStartTime");
+    NETVAR(m_flFadeOutStart, float, "CEntityDissolve", "m_flFadeOutStart");
+    NETVAR(m_flFadeOutLength, float, "CEntityDissolve", "m_flFadeOutLength");
+    NETVAR(m_flFadeOutModelStart, float, "CEntityDissolve", "m_flFadeOutModelStart");
+    NETVAR(m_flFadeOutModelLength, float, "CEntityDissolve", "m_flFadeOutModelLength");
+    NETVAR(m_flFadeInStart, float, "CEntityDissolve", "m_flFadeInStart");
+    NETVAR(m_flFadeInLength, float, "CEntityDissolve", "m_flFadeInLength");
+    NETVAR(m_nDissolveType, int, "CEntityDissolve", "m_nDissolveType");
+    NETVAR(m_vDissolverOrigin, vec3, "CEntityDissolve", "m_vDissolverOrigin");
+    NETVAR(m_nMagnitude, int, "CEntityDissolve", "m_nMagnitude");
+};
+
+class CDynamicLight {
+public:
+    NETVAR(m_Flags, int, "CDynamicLight", "m_Flags");
+    NETVAR(m_LightStyle, int, "CDynamicLight", "m_LightStyle");
+    NETVAR(m_Radius, float, "CDynamicLight", "m_Radius");
+    NETVAR(m_Exponent, int, "CDynamicLight", "m_Exponent");
+    NETVAR(m_InnerAngle, float, "CDynamicLight", "m_InnerAngle");
+    NETVAR(m_OuterAngle, float, "CDynamicLight", "m_OuterAngle");
+    NETVAR(m_SpotRadius, float, "CDynamicLight", "m_SpotRadius");
+};
+
+class CColorCorrectionVolume {
+public:
+    NETVAR(m_Weight, float, "CColorCorrectionVolume", "m_Weight");
+    NETVAR(m_lookupFilename, char*, "CColorCorrectionVolume", "m_lookupFilename");
+};
+
+class CColorCorrection {
+public:
+    NETVAR(m_vecOrigin, vec3, "CColorCorrection", "m_vecOrigin");
+    NETVAR(m_minFalloff, float, "CColorCorrection", "m_minFalloff");
+    NETVAR(m_maxFalloff, float, "CColorCorrection", "m_maxFalloff");
+    NETVAR(m_flCurWeight, float, "CColorCorrection", "m_flCurWeight");
+    NETVAR(m_netLookupFilename, char*, "CColorCorrection", "m_netLookupFilename");
+    NETVAR(m_bEnabled, int, "CColorCorrection", "m_bEnabled");
+};
+
+class CBasePlayer {
+public:
+    NETVAR(m_chAreaBits, RecvTable*, "CBasePlayer", "m_chAreaBits");
+    NETVAR(m_chAreaPortalBits, RecvTable*, "CBasePlayer", "m_chAreaPortalBits");
+    NETVAR(m_iHideHUD, int, "CBasePlayer", "m_iHideHUD");
+    NETVAR(m_flFOVRate, float, "CBasePlayer", "m_flFOVRate");
+    NETVAR(m_bDucked, int, "CBasePlayer", "m_bDucked");
+    NETVAR(m_bDucking, int, "CBasePlayer", "m_bDucking");
+    NETVAR(m_bInDuckJump, int, "CBasePlayer", "m_bInDuckJump");
+    NETVAR(m_flDucktime, float, "CBasePlayer", "m_flDucktime");
+    NETVAR(m_flDuckJumpTime, float, "CBasePlayer", "m_flDuckJumpTime");
+    NETVAR(m_flJumpTime, float, "CBasePlayer", "m_flJumpTime");
+    NETVAR(m_flFallVelocity, float, "CBasePlayer", "m_flFallVelocity");
+    NETVAR(m_vecPunchAngle, vec3, "CBasePlayer", "m_vecPunchAngle");
+    NETVAR(m_vecPunchAngleVel, vec3, "CBasePlayer", "m_vecPunchAngleVel");
+    NETVAR(m_bDrawViewmodel, int, "CBasePlayer", "m_bDrawViewmodel");
+    NETVAR(m_bWearingSuit, int, "CBasePlayer", "m_bWearingSuit");
+    NETVAR(m_bPoisoned, int, "CBasePlayer", "m_bPoisoned");
+    NETVAR(m_bForceLocalPlayerDraw, int, "CBasePlayer", "m_bForceLocalPlayerDraw");
+    NETVAR(m_flStepSize, float, "CBasePlayer", "m_flStepSize");
+    NETVAR(m_bAllowAutoMovement, int, "CBasePlayer", "m_bAllowAutoMovement");
+    NETVAR(m_szScriptOverlayMaterial, char*, "CBasePlayer", "m_szScriptOverlayMaterial");
+    NETVAR(m_Local, RecvTable*, "CBasePlayer", "m_Local");
+    NETVAR(m_vecViewOffset, vec3, "CBasePlayer", "m_vecViewOffset[0]");
+    NETVAR(m_flFriction, float, "CBasePlayer", "m_flFriction");
+    NETVAR(m_iAmmo, RecvTable*, "CBasePlayer", "m_iAmmo");
+    NETVAR(m_fOnTarget, int, "CBasePlayer", "m_fOnTarget");
+    NETVAR(m_nTickBase, int, "CBasePlayer", "m_nTickBase");
+    NETVAR(m_nNextThinkTick, int, "CBasePlayer", "m_nNextThinkTick");
+    NETVAR(m_hLastWeapon, int, "CBasePlayer", "m_hLastWeapon");
+    NETVAR(m_hGroundEntity, int, "CBasePlayer", "m_hGroundEntity");
+    NETVAR(m_vecVelocity, vec3, "CBasePlayer", "m_vecVelocity[0]");
+    NETVAR(m_vecBaseVelocity, vec3, "CBasePlayer", "m_vecBaseVelocity");
+    NETVAR(m_hConstraintEntity, int, "CBasePlayer", "m_hConstraintEntity");
+    NETVAR(m_vecConstraintCenter, vec3, "CBasePlayer", "m_vecConstraintCenter");
+    NETVAR(m_flConstraintRadius, float, "CBasePlayer", "m_flConstraintRadius");
+    NETVAR(m_flConstraintWidth, float, "CBasePlayer", "m_flConstraintWidth");
+    NETVAR(m_flConstraintSpeedFactor, float, "CBasePlayer", "m_flConstraintSpeedFactor");
+    NETVAR(m_flDeathTime, float, "CBasePlayer", "m_flDeathTime");
+    NETVAR(m_nWaterLevel, int, "CBasePlayer", "m_nWaterLevel");
+    NETVAR(m_flLaggedMovementValue, float, "CBasePlayer", "m_flLaggedMovementValue");
+    NETVAR(localdata, RecvTable*, "CBasePlayer", "localdata");
+    NETVAR(deadflag, int, "CBasePlayer", "deadflag");
+    NETVAR(pl, RecvTable*, "CBasePlayer", "pl");
+    NETVAR(m_iFOV, int, "CBasePlayer", "m_iFOV");
+    NETVAR(m_iFOVStart, int, "CBasePlayer", "m_iFOVStart");
+    NETVAR(m_flFOVTime, float, "CBasePlayer", "m_flFOVTime");
+    NETVAR(m_iDefaultFOV, int, "CBasePlayer", "m_iDefaultFOV");
+    NETVAR(m_hZoomOwner, int, "CBasePlayer", "m_hZoomOwner");
+    NETVAR(m_hVehicle, int, "CBasePlayer", "m_hVehicle");
+    NETVAR(m_hUseEntity, int, "CBasePlayer", "m_hUseEntity");
+    NETVAR(m_iHealth, int, "CBasePlayer", "m_iHealth");
+    NETVAR(m_lifeState, int, "CBasePlayer", "m_lifeState");
+    NETVAR(m_iBonusProgress, int, "CBasePlayer", "m_iBonusProgress");
+    NETVAR(m_iBonusChallenge, int, "CBasePlayer", "m_iBonusChallenge");
+    NETVAR(m_flMaxspeed, float, "CBasePlayer", "m_flMaxspeed");
+    NETVAR(m_fFlags, int, "CBasePlayer", "m_fFlags");
+    NETVAR(m_iObserverMode, int, "CBasePlayer", "m_iObserverMode");
+    NETVAR(m_hObserverTarget, int, "CBasePlayer", "m_hObserverTarget");
+    NETVAR(m_hViewModel, int, "CBasePlayer", "m_hViewModel[0]");
+    //NETVAR(m_hViewModel, array, "CBasePlayer", "m_hViewModel");
+    NETVAR(m_szLastPlaceName, char*, "CBasePlayer", "m_szLastPlaceName");
+};
+
+class CBaseFlex {
+public:
+    NETVAR(m_flexWeight, RecvTable*, "CBaseFlex", "m_flexWeight");
+    NETVAR(m_blinktoggle, int, "CBaseFlex", "m_blinktoggle");
+    NETVAR(m_viewtarget, vec3, "CBaseFlex", "m_viewtarget");
+};
+
+class CBaseEntity : public IClientEntity {
+public:
+    NETVAR(m_flAnimTime, int, "CBaseEntity", "m_flAnimTime");
+    NETVAR(AnimTimeMustBeFirst, RecvTable*, "CBaseEntity", "AnimTimeMustBeFirst");
+    NETVAR(m_flSimulationTime, int, "CBaseEntity", "m_flSimulationTime");
+    NETVAR(m_ubInterpolationFrame, int, "CBaseEntity", "m_ubInterpolationFrame");
+    NETVAR(m_vecOrigin, vec3, "CBaseEntity", "m_vecOrigin");
+    NETVAR(m_angRotation, vec3, "CBaseEntity", "m_angRotation");
+    NETVAR(m_nModelIndex, int, "CBaseEntity", "m_nModelIndex");
+    NETVAR(m_fEffects, int, "CBaseEntity", "m_fEffects");
+    NETVAR(m_nRenderMode, int, "CBaseEntity", "m_nRenderMode");
+    NETVAR(m_nRenderFX, int, "CBaseEntity", "m_nRenderFX");
+    NETVAR(m_clrRender, int, "CBaseEntity", "m_clrRender");
+    NETVAR(m_iTeamNum, int, "CBaseEntity", "m_iTeamNum");
+    NETVAR(m_CollisionGroup, int, "CBaseEntity", "m_CollisionGroup");
+    NETVAR(m_flElasticity, float, "CBaseEntity", "m_flElasticity");
+    NETVAR(m_flShadowCastDistance, float, "CBaseEntity", "m_flShadowCastDistance");
+    NETVAR(m_hOwnerEntity, int, "CBaseEntity", "m_hOwnerEntity");
+    NETVAR(m_hEffectEntity, int, "CBaseEntity", "m_hEffectEntity");
+    NETVAR(moveparent, int, "CBaseEntity", "moveparent");
+    NETVAR(m_iParentAttachment, int, "CBaseEntity", "m_iParentAttachment");
+    NETVAR(movetype, int, "CBaseEntity", "movetype");
+    NETVAR(movecollide, int, "CBaseEntity", "movecollide");
+    NETVAR(m_vecMinsPreScaled, vec3, "CBaseEntity", "m_vecMinsPreScaled");
+    NETVAR(m_vecMaxsPreScaled, vec3, "CBaseEntity", "m_vecMaxsPreScaled");
+    NETVAR(m_vecMins, vec3, "CBaseEntity", "m_vecMins");
+    NETVAR(m_vecMaxs, vec3, "CBaseEntity", "m_vecMaxs");
+    NETVAR(m_nSolidType, int, "CBaseEntity", "m_nSolidType");
+    NETVAR(m_usSolidFlags, int, "CBaseEntity", "m_usSolidFlags");
+    NETVAR(m_nSurroundType, int, "CBaseEntity", "m_nSurroundType");
+    NETVAR(m_triggerBloat, int, "CBaseEntity", "m_triggerBloat");
+    NETVAR(m_bUniformTriggerBloat, int, "CBaseEntity", "m_bUniformTriggerBloat");
+    NETVAR(m_vecSpecifiedSurroundingMinsPreScaled, vec3, "CBaseEntity", "m_vecSpecifiedSurroundingMinsPreScaled");
+    NETVAR(m_vecSpecifiedSurroundingMaxsPreScaled, vec3, "CBaseEntity", "m_vecSpecifiedSurroundingMaxsPreScaled");
+    NETVAR(m_vecSpecifiedSurroundingMins, vec3, "CBaseEntity", "m_vecSpecifiedSurroundingMins");
+    NETVAR(m_vecSpecifiedSurroundingMaxs, vec3, "CBaseEntity", "m_vecSpecifiedSurroundingMaxs");
+    NETVAR(m_Collision, RecvTable*, "CBaseEntity", "m_Collision");
+    NETVAR(m_iTextureFrameIndex, int, "CBaseEntity", "m_iTextureFrameIndex");
+    NETVAR(m_PredictableID, int, "CBaseEntity", "m_PredictableID");
+    NETVAR(m_bIsPlayerSimulated, int, "CBaseEntity", "m_bIsPlayerSimulated");
+    NETVAR(predictable_id, RecvTable*, "CBaseEntity", "predictable_id");
+    NETVAR(m_bSimulatedEveryTick, int, "CBaseEntity", "m_bSimulatedEveryTick");
+    NETVAR(m_bAnimatedEveryTick, int, "CBaseEntity", "m_bAnimatedEveryTick");
+    NETVAR(m_bAlternateSorting, int, "CBaseEntity", "m_bAlternateSorting");
+
     bool IsPlayer() {
         return GetClientClass()->m_ClassID == 27;
     }
-    
+
     bool IsC4() {
         return GetClientClass()->m_ClassID == 23;
     }
 };
 
-class Player_t : public Entity_t {
+class CBaseDoor {
+public:
+    NETVAR(m_flWaveHeight, float, "CBaseDoor", "m_flWaveHeight");
+};
+
+class CBaseCombatCharacter {
+public:
+    NETVAR(m_flNextAttack, float, "CBaseCombatCharacter", "m_flNextAttack");
+    NETVAR(bcc_localdata, RecvTable*, "CBaseCombatCharacter", "bcc_localdata");
+    NETVAR(m_hActiveWeapon, int, "CBaseCombatCharacter", "m_hActiveWeapon");
+    NETVAR(m_hMyWeapons, RecvTable*, "CBaseCombatCharacter", "m_hMyWeapons");
+};
+
+class CBaseAnimatingOverlay {
+public:
+    NETVAR(m_AnimOverlay, RecvTable*, "CBaseAnimatingOverlay", "m_AnimOverlay");
+    NETVAR(overlay_vars, RecvTable*, "CBaseAnimatingOverlay", "overlay_vars");
+};
+
+class CBoneFollower {
+public:
+    NETVAR(m_modelIndex, int, "CBoneFollower", "m_modelIndex");
+    NETVAR(m_solidIndex, int, "CBoneFollower", "m_solidIndex");
+};
+
+class CBaseAnimating {
+public:
+    NETVAR(m_nSequence, int, "CBaseAnimating", "m_nSequence");
+    NETVAR(m_nForceBone, int, "CBaseAnimating", "m_nForceBone");
+    NETVAR(m_vecForce, vec3, "CBaseAnimating", "m_vecForce");
+    NETVAR(m_nSkin, int, "CBaseAnimating", "m_nSkin");
+    NETVAR(m_nBody, int, "CBaseAnimating", "m_nBody");
+    NETVAR(m_nHitboxSet, int, "CBaseAnimating", "m_nHitboxSet");
+    NETVAR(m_flModelScale, float, "CBaseAnimating", "m_flModelScale");
+    NETVAR(m_flModelWidthScale, float, "CBaseAnimating", "m_flModelWidthScale");
+    NETVAR(m_flPoseParameter, RecvTable*, "CBaseAnimating", "m_flPoseParameter");
+    NETVAR(m_flPlaybackRate, float, "CBaseAnimating", "m_flPlaybackRate");
+    NETVAR(m_flEncodedController, RecvTable*, "CBaseAnimating", "m_flEncodedController");
+    NETVAR(m_bClientSideAnimation, int, "CBaseAnimating", "m_bClientSideAnimation");
+    NETVAR(m_bClientSideFrameReset, int, "CBaseAnimating", "m_bClientSideFrameReset");
+    NETVAR(m_nNewSequenceParity, int, "CBaseAnimating", "m_nNewSequenceParity");
+    NETVAR(m_nResetEventsParity, int, "CBaseAnimating", "m_nResetEventsParity");
+    NETVAR(m_nMuzzleFlashParity, int, "CBaseAnimating", "m_nMuzzleFlashParity");
+    NETVAR(m_hLightingOrigin, int, "CBaseAnimating", "m_hLightingOrigin");
+    NETVAR(m_hLightingOriginRelative, int, "CBaseAnimating", "m_hLightingOriginRelative");
+    NETVAR(m_flCycle, float, "CBaseAnimating", "m_flCycle");
+    NETVAR(serveranimdata, RecvTable*, "CBaseAnimating", "serveranimdata");
+    NETVAR(m_fadeMinDist, float, "CBaseAnimating", "m_fadeMinDist");
+    NETVAR(m_fadeMaxDist, float, "CBaseAnimating", "m_fadeMaxDist");
+    NETVAR(m_flFadeScale, float, "CBaseAnimating", "m_flFadeScale");
+};
+
+class CInfoLightingRelative {
+public:
+    NETVAR(m_hLightingLandmark, int, "CInfoLightingRelative", "m_hLightingLandmark");
+};
+
+class CAI_BaseNPC {
+public:
+    NETVAR(m_lifeState, int, "CAI_BaseNPC", "m_lifeState");
+    NETVAR(m_bPerformAvoidance, int, "CAI_BaseNPC", "m_bPerformAvoidance");
+    NETVAR(m_bIsMoving, int, "CAI_BaseNPC", "m_bIsMoving");
+    NETVAR(m_bFadeCorpse, int, "CAI_BaseNPC", "m_bFadeCorpse");
+    NETVAR(m_iDeathPose, int, "CAI_BaseNPC", "m_iDeathPose");
+    NETVAR(m_iDeathFrame, int, "CAI_BaseNPC", "m_iDeathFrame");
+    NETVAR(m_iSpeedModRadius, int, "CAI_BaseNPC", "m_iSpeedModRadius");
+    NETVAR(m_iSpeedModSpeed, int, "CAI_BaseNPC", "m_iSpeedModSpeed");
+    NETVAR(m_bSpeedModActive, int, "CAI_BaseNPC", "m_bSpeedModActive");
+    NETVAR(m_bImportanRagdoll, int, "CAI_BaseNPC", "m_bImportanRagdoll");
+    NETVAR(m_flTimePingEffect, float, "CAI_BaseNPC", "m_flTimePingEffect");
+};
+
+class CBeam {
+public:
+    NETVAR(m_nBeamType, int, "CBeam", "m_nBeamType");
+    NETVAR(m_nBeamFlags, int, "CBeam", "m_nBeamFlags");
+    NETVAR(m_nNumBeamEnts, int, "CBeam", "m_nNumBeamEnts");
+    NETVAR(m_hAttachEntity, RecvTable*, "CBeam", "m_hAttachEntity");
+    NETVAR(m_nAttachIndex, RecvTable*, "CBeam", "m_nAttachIndex");
+    NETVAR(m_nHaloIndex, int, "CBeam", "m_nHaloIndex");
+    NETVAR(m_fHaloScale, float, "CBeam", "m_fHaloScale");
+    NETVAR(m_fWidth, float, "CBeam", "m_fWidth");
+    NETVAR(m_fEndWidth, float, "CBeam", "m_fEndWidth");
+    NETVAR(m_fFadeLength, float, "CBeam", "m_fFadeLength");
+    NETVAR(m_fAmplitude, float, "CBeam", "m_fAmplitude");
+    NETVAR(m_fStartFrame, float, "CBeam", "m_fStartFrame");
+    NETVAR(m_fSpeed, float, "CBeam", "m_fSpeed");
+    NETVAR(m_flFrameRate, float, "CBeam", "m_flFrameRate");
+    NETVAR(m_flHDRColorScale, float, "CBeam", "m_flHDRColorScale");
+    NETVAR(m_clrRender, int, "CBeam", "m_clrRender");
+    NETVAR(m_nRenderFX, int, "CBeam", "m_nRenderFX");
+    NETVAR(m_nRenderMode, int, "CBeam", "m_nRenderMode");
+    NETVAR(m_flFrame, float, "CBeam", "m_flFrame");
+    NETVAR(m_vecEndPos, vec3, "CBeam", "m_vecEndPos");
+    NETVAR(m_nModelIndex, int, "CBeam", "m_nModelIndex");
+    NETVAR(m_nMinDXLevel, int, "CBeam", "m_nMinDXLevel");
+    NETVAR(m_vecOrigin, vec3, "CBeam", "m_vecOrigin");
+    NETVAR(moveparent, int, "CBeam", "moveparent");
+    NETVAR(m_PredictableID, int, "CBeam", "m_PredictableID");
+    NETVAR(m_bIsPlayerSimulated, int, "CBeam", "m_bIsPlayerSimulated");
+    NETVAR(beampredictable_id, RecvTable*, "CBeam", "beampredictable_id");
+};
+
+class CBaseViewModel {
+public:
+    NETVAR(m_nModelIndex, int, "CBaseViewModel", "m_nModelIndex");
+    NETVAR(m_nSkin, int, "CBaseViewModel", "m_nSkin");
+    NETVAR(m_nBody, int, "CBaseViewModel", "m_nBody");
+    NETVAR(m_nSequence, int, "CBaseViewModel", "m_nSequence");
+    NETVAR(m_nViewModelIndex, int, "CBaseViewModel", "m_nViewModelIndex");
+    NETVAR(m_flPlaybackRate, float, "CBaseViewModel", "m_flPlaybackRate");
+    NETVAR(m_fEffects, int, "CBaseViewModel", "m_fEffects");
+    NETVAR(m_nAnimationParity, int, "CBaseViewModel", "m_nAnimationParity");
+    NETVAR(m_hWeapon, int, "CBaseViewModel", "m_hWeapon");
+    NETVAR(m_hOwner, int, "CBaseViewModel", "m_hOwner");
+    NETVAR(m_nNewSequenceParity, int, "CBaseViewModel", "m_nNewSequenceParity");
+    NETVAR(m_nResetEventsParity, int, "CBaseViewModel", "m_nResetEventsParity");
+    NETVAR(m_nMuzzleFlashParity, int, "CBaseViewModel", "m_nMuzzleFlashParity");
+    NETVAR(m_flPoseParameter, float, "CBaseViewModel", "m_flPoseParameter[0]");
+    //NETVAR(m_flPoseParameter, array, "CBaseViewModel", "m_flPoseParameter");
+};
+
+class CBaseProjectile {
+public:
+    NETVAR(m_hOriginalLauncher, int, "CBaseProjectile", "m_hOriginalLauncher");
+};
+
+class CBaseGrenade {
+public:
+    NETVAR(m_flDamage, float, "CBaseGrenade", "m_flDamage");
+    NETVAR(m_DmgRadius, float, "CBaseGrenade", "m_DmgRadius");
+    NETVAR(m_bIsLive, int, "CBaseGrenade", "m_bIsLive");
+    NETVAR(m_hThrower, int, "CBaseGrenade", "m_hThrower");
+    NETVAR(m_vecVelocity, vec3, "CBaseGrenade", "m_vecVelocity");
+    NETVAR(m_fFlags, int, "CBaseGrenade", "m_fFlags");
+};
+
+class CBaseCombatWeapon {
+public:
+    NETVAR(m_iClip1, int, "CBaseCombatWeapon", "m_iClip1");
+    NETVAR(m_iClip2, int, "CBaseCombatWeapon", "m_iClip2");
+    NETVAR(m_iPrimaryAmmoType, int, "CBaseCombatWeapon", "m_iPrimaryAmmoType");
+    NETVAR(m_iSecondaryAmmoType, int, "CBaseCombatWeapon", "m_iSecondaryAmmoType");
+    NETVAR(m_nViewModelIndex, int, "CBaseCombatWeapon", "m_nViewModelIndex");
+    NETVAR(m_nCustomViewmodelModelIndex, int, "CBaseCombatWeapon", "m_nCustomViewmodelModelIndex");
+    NETVAR(m_bFlipViewModel, int, "CBaseCombatWeapon", "m_bFlipViewModel");
+    NETVAR(LocalWeaponData, RecvTable*, "CBaseCombatWeapon", "LocalWeaponData");
+    NETVAR(m_flNextPrimaryAttack, float, "CBaseCombatWeapon", "m_flNextPrimaryAttack");
+    NETVAR(m_flNextSecondaryAttack, float, "CBaseCombatWeapon", "m_flNextSecondaryAttack");
+    NETVAR(m_nNextThinkTick, int, "CBaseCombatWeapon", "m_nNextThinkTick");
+    NETVAR(m_flTimeWeaponIdle, float, "CBaseCombatWeapon", "m_flTimeWeaponIdle");
+    NETVAR(LocalActiveWeaponData, RecvTable*, "CBaseCombatWeapon", "LocalActiveWeaponData");
+    NETVAR(m_iViewModelIndex, int, "CBaseCombatWeapon", "m_iViewModelIndex");
+    NETVAR(m_iWorldModelIndex, int, "CBaseCombatWeapon", "m_iWorldModelIndex");
+    NETVAR(m_iState, int, "CBaseCombatWeapon", "m_iState");
+    NETVAR(m_hOwner, int, "CBaseCombatWeapon", "m_hOwner");
+};
+
+class Player_t : public CCSPlayer, public CBaseEntity {
 public:
 
 };
-
-

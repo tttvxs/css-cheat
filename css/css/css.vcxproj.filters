@@ -71,6 +71,12 @@
     <ClInclude Include="sdk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="dt\dt_common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dt\dt_recv.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="minhook\helpers\MinHook.def">
